@@ -1,23 +1,41 @@
 {
   "expo": {
-    "name": "HouseKeeperMobileScaffold",
-    "slug": "HouseKeeperMobileScaffold",
-    "version": "1.0.0",
+    "name": "House Keeper",
+    "slug": "house-keeper",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "housekeepermobilescaffold",
-    "userInterfaceStyle": "automatic",
+    "scheme": "housekeeper",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.khoinguyen.housekeeper",
+      "buildNumber": "3",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "House Keeper dùng camera để quét giấy tờ, hóa đơn và thông tin bảo hành.",
+        "NSPhotoLibraryUsageDescription": "House Keeper cần truy cập ảnh bạn chọn để trích xuất thông tin.",
+        "NSFaceIDUsageDescription": "House Keeper có thể dùng Face ID để bảo vệ dữ liệu cá nhân."
+      }
     },
     "android": {
+      "package": "com.khoinguyen.housekeeper",
+      "versionCode": 3,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#F8F9FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "output": "static",
@@ -28,9 +46,39 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F8F9FF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép House Keeper dùng camera để quét tài liệu."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép House Keeper đọc ảnh bạn chọn để quét tài liệu.",
+          "cameraPermission": "Cho phép House Keeper dùng camera để quét tài liệu."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#0058BE"
+        }
+      ],
+      "expo-secure-store",
+      "expo-localization",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": false
+          }
         }
       ]
     ],

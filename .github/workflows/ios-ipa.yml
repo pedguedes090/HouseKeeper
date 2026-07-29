@@ -1,0 +1,240 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: "1"
+      NODE_ENV: production
+      EXPO_PUBLIC_API_URL: https://house-keeper.truyenlaunch.dev/api/v1
+      EXPECTED_BUNDLE_ID: com.khoinguyen.housekeeper
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify Apple toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          pod --version
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Validate Expo project
+        run: |
+          npm run typecheck
+          npm run lint
+          npx --yes expo-doctor
+
+      - name: Generate iOS native project
+        run: |
+          npx expo prebuild --platform ios --clean --no-install
+          cd ios
+          pod install --repo-update
+
+      - name: Locate Xcode workspace and scheme
+        id: xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          WORKSPACE="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          if [[ -z "$WORKSPACE" ]]; then
+            echo "::error::No Xcode workspace was generated."
+            exit 1
+          fi
+
+          XCODE_LIST="$RUNNER_TEMP/xcode-list.json"
+          xcodebuild -list -json -workspace "$WORKSPACE" > "$XCODE_LIST"
+          SCHEME="$(
+            node -e "
+              const data = require(process.argv[1]);
+              const container = data.workspace ?? data.project;
+              const scheme = container?.schemes?.find(
+                (name) => !name.startsWith('Pods')
+              );
+              if (!scheme) process.exit(1);
+              process.stdout.write(scheme);
+            " "$XCODE_LIST"
+          )"
+
+          {
+            echo "workspace=$WORKSPACE"
+            echo "scheme=$SCHEME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build unsigned iPhone application
+        id: build
+        shell: bash
+        env:
+          WORKSPACE: ${{ steps.xcode.outputs.workspace }}
+          SCHEME: ${{ steps.xcode.outputs.scheme }}
+        run: |
+          set -euo pipefail
+
+          APP_VERSION="$(node -p "require('./app.json').expo.version")"
+          CONFIG_BUILD_NUMBER="$(
+            node -p "require('./app.json').expo.ios.buildNumber"
+          )"
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          if (( BUILD_NUMBER < CONFIG_BUILD_NUMBER )); then
+            BUILD_NUMBER="$CONFIG_BUILD_NUMBER"
+          fi
+
+          DERIVED_DATA="$RUNNER_TEMP/HouseKeeperDerivedData"
+          xcodebuild clean build \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            "CODE_SIGN_IDENTITY="
+
+          APP_PATH="$(
+            find "$DERIVED_DATA/Build/Products/Release-iphoneos" \
+              -maxdepth 1 \
+              -name '*.app' \
+              -print \
+              -quit
+          )"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "::error::Xcode completed without producing an iPhone app bundle."
+            exit 1
+          fi
+
+          {
+            echo "app_path=$APP_PATH"
+            echo "app_version=$APP_VERSION"
+            echo "build_number=$BUILD_NUMBER"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate and package unsigned IPA
+        id: package
+        shell: bash
+        env:
+          APP_PATH: ${{ steps.build.outputs.app_path }}
+          APP_VERSION: ${{ steps.build.outputs.app_version }}
+          BUILD_NUMBER: ${{ steps.build.outputs.build_number }}
+        run: |
+          set -euo pipefail
+
+          INFO_PLIST="$APP_PATH/Info.plist"
+          ACTUAL_BUNDLE_ID="$(
+            /usr/libexec/PlistBuddy \
+              -c 'Print :CFBundleIdentifier' \
+              "$INFO_PLIST"
+          )"
+          ACTUAL_VERSION="$(
+            /usr/libexec/PlistBuddy \
+              -c 'Print :CFBundleShortVersionString' \
+              "$INFO_PLIST"
+          )"
+          ACTUAL_BUILD="$(
+            /usr/libexec/PlistBuddy \
+              -c 'Print :CFBundleVersion' \
+              "$INFO_PLIST"
+          )"
+          EXECUTABLE_NAME="$(
+            /usr/libexec/PlistBuddy \
+              -c 'Print :CFBundleExecutable' \
+              "$INFO_PLIST"
+          )"
+
+          test "$ACTUAL_BUNDLE_ID" = "$EXPECTED_BUNDLE_ID"
+          test "$ACTUAL_VERSION" = "$APP_VERSION"
+          test "$ACTUAL_BUILD" = "$BUILD_NUMBER"
+
+          ARCHITECTURES="$(lipo -archs "$APP_PATH/$EXECUTABLE_NAME")"
+          if [[ " $ARCHITECTURES " != *" arm64 "* ]]; then
+            echo "::error::The iPhone executable does not contain arm64."
+            exit 1
+          fi
+
+          if codesign --verify --deep --strict "$APP_PATH" 2>/dev/null; then
+            echo "::error::Expected an unsigned app, but a valid signature was found."
+            exit 1
+          fi
+
+          if ! grep -R -a -q \
+            'https://house-keeper.truyenlaunch.dev/api/v1' \
+            "$APP_PATH"; then
+            echo "::error::The production backend URL is missing from the app bundle."
+            exit 1
+          fi
+
+          PACKAGE_ROOT="$RUNNER_TEMP/HouseKeeperPackage"
+          IPA_NAME="HouseKeeper-${APP_VERSION}-${BUILD_NUMBER}-unsigned.ipa"
+          IPA_PATH="$GITHUB_WORKSPACE/artifacts/$IPA_NAME"
+          mkdir -p "$PACKAGE_ROOT/Payload" "$GITHUB_WORKSPACE/artifacts"
+          ditto "$APP_PATH" "$PACKAGE_ROOT/Payload/HouseKeeper.app"
+
+          (
+            cd "$PACKAGE_ROOT"
+            ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_PATH"
+          )
+
+          unzip -t "$IPA_PATH"
+          IPA_ENTRIES="$RUNNER_TEMP/housekeeper-ipa-entries.txt"
+          unzip -Z1 "$IPA_PATH" > "$IPA_ENTRIES"
+          if ! grep -q '^Payload/[^/]*/Info.plist$' "$IPA_ENTRIES"; then
+            echo "::error::The IPA does not have a valid Payload app layout."
+            exit 1
+          fi
+
+          SHA256="$(shasum -a 256 "$IPA_PATH" | awk '{ print $1 }')"
+          printf '%s  %s\n' "$SHA256" "$IPA_NAME" \
+            > "$IPA_PATH.sha256"
+
+          {
+            echo "ipa_name=$IPA_NAME"
+            echo "sha256=$SHA256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: HouseKeeper-iOS-unsigned-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write build summary
+        shell: bash
+        env:
+          IPA_NAME: ${{ steps.package.outputs.ipa_name }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        run: |
+          {
+            echo "## House Keeper unsigned IPA"
+            echo
+            echo "- File: \`$IPA_NAME\`"
+            echo "- SHA-256: \`$SHA256\`"
+            echo "- Bundle ID: \`$EXPECTED_BUNDLE_ID\`"
+            echo
+            echo "The IPA must be signed before it can be installed on an iPhone."
+          } >> "$GITHUB_STEP_SUMMARY"

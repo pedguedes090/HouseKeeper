@@ -1,17 +1,18 @@
-import { Redirect } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 
 import { LoadingState } from '@/components/ui/feedback';
 import { Screen } from '@/components/ui/screen';
 import { useAuth } from '@/providers/auth-provider';
 
-export default function IndexRoute() {
+export default function AuthLayout() {
   const { status } = useAuth();
   if (status === 'loading') {
     return (
       <Screen scroll={false} bottomInset={false}>
-        <LoadingState label="Đang mở House Keeper…" />
+        <LoadingState />
       </Screen>
     );
   }
-  return <Redirect href={status === 'authenticated' ? '/(tabs)' : '/(auth)/sign-in'} />;
+  if (status === 'authenticated') return <Redirect href="/(tabs)" />;
+  return <Stack screenOptions={{ headerShown: false }} />;
 }

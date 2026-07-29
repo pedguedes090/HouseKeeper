@@ -31,10 +31,18 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
 
 # typescript
 *.tsbuildinfo
+
+# Local QA and generated audit artifacts
+.impeccable/
+.playwright-cli/
+output/
 
 example
 

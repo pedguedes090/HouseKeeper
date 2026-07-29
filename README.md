@@ -1,56 +1,94 @@
-# Welcome to your Expo app 👋
+# House Keeper Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ứng dụng React Native dùng Expo SDK 57 cho Android và iOS. Giao diện bám theo
+file Figma House Keeper, dùng tiếng Việt và kết nối trực tiếp Spring Boot API.
 
-## Get started
+## Tính năng
 
-1. Install dependencies
+- Đăng ký, đăng nhập và lưu token trong Secure Store.
+- Dashboard ưu tiên việc gấp.
+- CRUD giấy tờ, hóa đơn, tài sản và lịch sử thanh toán.
+- Theo dõi bảo hành, bảo dưỡng và lịch nhắc.
+- Camera hoặc tệp ảnh → backend AI → người dùng kiểm tra → xác nhận.
+- Trợ lý hỏi đáp dựa trên dữ liệu của chính người dùng.
+- Đồng bộ lịch nhắc từ backend thành local notification.
 
-   ```bash
-   npm install
-   ```
+## Chạy local
 
-2. Start the app
+Yêu cầu Node.js và tunnel backend đang hoạt động.
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```powershell
+npm install
+Copy-Item .env.example .env
+npm start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Địa chỉ API mặc định cho Android, iOS và web:
+`https://house-keeper.truyenlaunch.dev/api/v1`.
 
-### Other setup steps
+## Kiểm tra mã nguồn
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```powershell
+npm run typecheck
+npm run lint
+npx expo-doctor
+```
 
-## Learn more
+## Android
 
-To learn more about developing your project with Expo, look at the following resources:
+Sinh native project:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```powershell
+npm run prebuild:android
+```
 
-## Join the community
+Build APK thử nghiệm qua EAS:
 
-Join our community of developers creating universal apps.
+```powershell
+npx eas-cli login
+npm run build:android:preview
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Profile `preview` tạo APK cài trực tiếp. Profile `production` tạo AAB cho Google
+Play.
+
+Build APK release trực tiếp trên Windows/macOS/Linux có Android SDK:
+
+```powershell
+npm run prebuild:android
+$env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"
+$env:NODE_ENV="production"
+$env:EXPO_PUBLIC_API_URL="https://house-keeper.truyenlaunch.dev/api/v1"
+Set-Location android
+.\gradlew.bat :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+```
+
+Điện thoại có thể kết nối qua Internet và không cần cùng mạng Wi-Fi với máy
+chạy backend, miễn là tunnel HTTPS vẫn hoạt động.
+
+## iOS
+
+Build IPA chưa ký bằng GitHub Actions để tự ký lại sau:
+
+1. Đọc hướng dẫn tại [`docs/GITHUB_IOS_BUILD.md`](docs/GITHUB_IOS_BUILD.md).
+2. Đưa repository lên GitHub.
+3. Chạy workflow `Build unsigned iOS IPA` trong tab Actions.
+
+Workflow không cần tài khoản Expo/EAS, Apple ID hoặc certificate. IPA phải được
+ký lại trước khi cài lên iPhone.
+
+Build qua EAS:
+
+```powershell
+npm run prebuild:all
+npm run build:ios:production
+```
+
+Build iOS production cần Apple Developer account khi EAS yêu cầu ký ứng dụng.
+
+## Cấu hình
+
+- `app.json`: bundle/package id và quyền hệ thống.
+- `eas.json`: profile development, preview APK và production.
+- `PRODUCT.md`: mục tiêu sản phẩm và tiêu chí UX.
+- `DESIGN.md`: token và quy tắc giao diện lấy từ Figma.
