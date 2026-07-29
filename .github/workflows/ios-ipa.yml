@@ -44,7 +44,7 @@ jobs:
           pod --version
 
       - name: Install JavaScript dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Validate Expo project
         run: |
