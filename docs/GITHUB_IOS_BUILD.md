@@ -6,7 +6,8 @@ trở lên và ứng dụng yêu cầu iOS 16.4 trở lên, nên không dùng ru
 hơn.
 
 Workflow không cần tài khoản Expo, Apple ID, certificate hoặc provisioning
-profile. Nó chỉ chạy thủ công và không chạy khi push hoặc mở pull request.
+profile. Nó chạy thủ công hoặc khi commit được push lên `master` có
+`[build-ios]` trong commit message. Pull request không chạy build IPA.
 
 ## Chạy build
 
@@ -17,6 +18,9 @@ profile. Nó chỉ chạy thủ công và không chạy khi push hoặc mở pul
 5. Chọn `Run workflow`.
 6. Khi job hoàn tất, tải artifact
    `HouseKeeper-iOS-unsigned-<run number>`.
+
+Hoặc tạo một commit có `[build-ios]` trong message rồi push lên `master` để chạy
+build tự động. Các commit bình thường không tiêu tốn macOS build minutes.
 
 Artifact chứa:
 
