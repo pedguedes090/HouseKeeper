@@ -70,19 +70,32 @@ jobs:
             exit 1
           fi
 
-          XCODE_LIST="$RUNNER_TEMP/xcode-list.json"
-          xcodebuild -list -json -workspace "$WORKSPACE" > "$XCODE_LIST"
+          APP_PROJECT="$(
+            find ios \
+              -maxdepth 1 \
+              -name '*.xcodeproj' \
+              ! -name 'Pods.xcodeproj' \
+              -print \
+              -quit
+          )"
+          if [[ -z "$APP_PROJECT" ]]; then
+            echo "::error::No application Xcode project was generated."
+            exit 1
+          fi
+
+          XCODE_LIST="$RUNNER_TEMP/xcode-project-list.json"
+          xcodebuild -list -json -project "$APP_PROJECT" > "$XCODE_LIST"
           SCHEME="$(
             node -e "
               const data = require(process.argv[1]);
-              const container = data.workspace ?? data.project;
-              const scheme = container?.schemes?.find(
-                (name) => !name.startsWith('Pods')
-              );
+              const scheme = data.project?.schemes?.[0];
               if (!scheme) process.exit(1);
               process.stdout.write(scheme);
             " "$XCODE_LIST"
           )"
+
+          echo "Selected application project: $APP_PROJECT"
+          echo "Selected application scheme: $SCHEME"
 
           {
             echo "workspace=$WORKSPACE"
@@ -121,14 +134,34 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             "CODE_SIGN_IDENTITY="
 
+          BUILD_SETTINGS="$RUNNER_TEMP/housekeeper-build-settings.json"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -showBuildSettings \
+            -json \
+            > "$BUILD_SETTINGS"
+
           APP_PATH="$(
-            find "$DERIVED_DATA/Build/Products/Release-iphoneos" \
-              -maxdepth 1 \
-              -name '*.app' \
-              -print \
-              -quit
+            node -e "
+              const path = require('node:path');
+              const entries = require(process.argv[1]);
+              const settings = entries.find(
+                (entry) => entry.buildSettings?.WRAPPER_EXTENSION === 'app'
+              )?.buildSettings;
+              if (!settings?.TARGET_BUILD_DIR || !settings?.WRAPPER_NAME) {
+                process.exit(1);
+              }
+              process.stdout.write(
+                path.join(settings.TARGET_BUILD_DIR, settings.WRAPPER_NAME)
+              );
+            " "$BUILD_SETTINGS"
           )"
-          if [[ -z "$APP_PATH" ]]; then
+          if [[ -z "$APP_PATH" || ! -d "$APP_PATH" ]]; then
             echo "::error::Xcode completed without producing an iPhone app bundle."
             exit 1
           fi
