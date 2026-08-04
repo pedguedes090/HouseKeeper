@@ -43,6 +43,7 @@ yarn-error.*
 .impeccable/
 .playwright-cli/
 output/
+.worktrees/
 
 example
 
