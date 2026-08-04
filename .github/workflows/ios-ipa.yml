@@ -121,6 +121,48 @@ jobs:
           fi
 
           DERIVED_DATA="$RUNNER_TEMP/HouseKeeperDerivedData"
+          BUILD_SETTINGS="$RUNNER_TEMP/housekeeper-build-settings.json"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            -showBuildSettings \
+            -json \
+            > "$BUILD_SETTINGS"
+
+          SOURCE_INFO_PLIST="$(
+            node -e "
+              const path = require('node:path');
+              const entries = require(process.argv[1]);
+              const settings = entries.find(
+                (entry) => entry.buildSettings?.WRAPPER_EXTENSION === 'app'
+              )?.buildSettings;
+              if (!settings?.PROJECT_DIR || !settings?.INFOPLIST_FILE) {
+                process.exit(1);
+              }
+              process.stdout.write(
+                path.resolve(settings.PROJECT_DIR, settings.INFOPLIST_FILE)
+              );
+            " "$BUILD_SETTINGS"
+          )"
+          if [[ -z "$SOURCE_INFO_PLIST" || ! -f "$SOURCE_INFO_PLIST" ]]; then
+            echo "::error::Unable to locate the application Info.plist."
+            exit 1
+          fi
+
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleShortVersionString $APP_VERSION" \
+            "$SOURCE_INFO_PLIST"
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleVersion $BUILD_NUMBER" \
+            "$SOURCE_INFO_PLIST"
+
+          echo "Resolved application Info.plist: $SOURCE_INFO_PLIST"
+          echo "Building version $APP_VERSION ($BUILD_NUMBER)"
+
           xcodebuild clean build \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -133,18 +175,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             "CODE_SIGN_IDENTITY="
-
-          BUILD_SETTINGS="$RUNNER_TEMP/housekeeper-build-settings.json"
-          xcodebuild \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath "$DERIVED_DATA" \
-            -showBuildSettings \
-            -json \
-            > "$BUILD_SETTINGS"
 
           APP_PATH="$(
             node -e "
@@ -204,9 +234,22 @@ jobs:
               "$INFO_PLIST"
           )"
 
-          test "$ACTUAL_BUNDLE_ID" = "$EXPECTED_BUNDLE_ID"
-          test "$ACTUAL_VERSION" = "$APP_VERSION"
-          test "$ACTUAL_BUILD" = "$BUILD_NUMBER"
+          assert_equals() {
+            local label="$1"
+            local expected="$2"
+            local actual="$3"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::$label mismatch: expected '$expected', got '$actual'."
+              exit 1
+            fi
+          }
+
+          assert_equals \
+            "Bundle identifier" \
+            "$EXPECTED_BUNDLE_ID" \
+            "$ACTUAL_BUNDLE_ID"
+          assert_equals "App version" "$APP_VERSION" "$ACTUAL_VERSION"
+          assert_equals "Build number" "$BUILD_NUMBER" "$ACTUAL_BUILD"
 
           ARCHITECTURES="$(lipo -archs "$APP_PATH/$EXECUTABLE_NAME")"
           if [[ " $ARCHITECTURES " != *" arm64 "* ]]; then
