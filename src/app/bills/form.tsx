@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { AppText } from '@/components/ui/app-text';
 import { ChoiceChips } from '@/components/ui/chip';
 import { ErrorState, LoadingState } from '@/components/ui/feedback';
 import { DateField, FormField } from '@/components/ui/form-field';
@@ -14,7 +15,7 @@ import { SwitchRow } from '@/components/ui/switch-row';
 import { billCategoryLabels, recurrenceLabels } from '@/lib/format';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
 import { BillCategory, BillInput, Recurrence } from '@/lib/types';
-import { spacing } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 function defaultDueDate() {
   const date = new Date();
@@ -35,6 +36,7 @@ const empty: BillInput = {
   active: true,
   notes: '',
   invoiceFileUrl: null,
+  spendingJarId: null,
 };
 
 export default function BillFormScreen() {
@@ -49,6 +51,10 @@ export default function BillFormScreen() {
     queryKey: queryKeys.bill(id ?? ''),
     queryFn: () => housekeeperApi.getBill(id!),
     enabled: Boolean(id),
+  });
+  const jars = useQuery({
+    queryKey: queryKeys.spendingJars,
+    queryFn: housekeeperApi.listSpendingJars,
   });
 
   useEffect(() => {
@@ -66,6 +72,7 @@ export default function BillFormScreen() {
         active,
         notes,
         invoiceFileUrl,
+        spendingJarId,
       } = existing.data;
       setForm({
         title,
@@ -80,11 +87,23 @@ export default function BillFormScreen() {
         active,
         notes,
         invoiceFileUrl,
+        spendingJarId,
       });
       setAmount(String(savedAmount));
       setReminderDays(String(reminderDaysBefore));
     }
   }, [existing.data]);
+
+  useEffect(() => {
+    if (id || form.spendingJarId || !jars.data?.length) return;
+    const suggested =
+      jars.data.find(
+        (jar) => jar.name === 'Hóa đơn định kỳ' && jar.currency === form.currency,
+      ) ?? jars.data.find((jar) => jar.currency === form.currency);
+    if (suggested) {
+      setForm((current) => ({ ...current, spendingJarId: suggested.id }));
+    }
+  }, [form.currency, form.spendingJarId, id, jars.data]);
 
   const save = useMutation({
     mutationFn: (input: BillInput) =>
@@ -109,6 +128,12 @@ export default function BillFormScreen() {
       nextErrors.reminder = 'Số ngày nhắc phải từ 0 đến 365.';
     }
     if (!form.nextDueDate) nextErrors.nextDueDate = 'Vui lòng chọn ngày đến hạn.';
+    const selectedJar = jars.data?.find((jar) => jar.id === form.spendingJarId);
+    if (!selectedJar) {
+      nextErrors.spendingJarId = 'Vui lòng chọn hũ ghi nhận khoản thanh toán.';
+    } else if (selectedJar.currency !== form.currency.toUpperCase()) {
+      nextErrors.spendingJarId = 'Loại tiền của hũ phải khớp với hóa đơn.';
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
     save.mutate({
@@ -158,6 +183,35 @@ export default function BillFormScreen() {
             label: billCategoryLabels[value],
           }))}
         />
+        <View style={styles.jarField}>
+          <AppText variant="supportingStrong" color={colors.inkMuted}>
+            Hũ ghi nhận chi tiêu *
+          </AppText>
+          {jars.data?.length ? (
+            <ChoiceChips
+              accessibilityLabel="Chọn hũ ghi nhận chi tiêu"
+              value={form.spendingJarId ?? ''}
+              onChange={(spendingJarId) =>
+                setForm((current) => ({ ...current, spendingJarId }))
+              }
+              choices={jars.data
+                .filter((jar) => jar.currency === form.currency.toUpperCase())
+                .map((jar) => ({ value: jar.id, label: jar.name }))}
+            />
+          ) : (
+            <AppText variant="supporting" color={colors.inkMuted}>
+              Đang chuẩn bị danh sách hũ…
+            </AppText>
+          )}
+          <AppText variant="label" color={colors.inkMuted}>
+            Khi thanh toán, House Keeper tự tạo một khoản chi đúng một lần.
+          </AppText>
+          {errors.spendingJarId ? (
+            <AppText variant="label" color={colors.danger}>
+              {errors.spendingJarId}
+            </AppText>
+          ) : null}
+        </View>
         <View style={styles.inline}>
           <View style={styles.flex}>
             <FormField
@@ -242,5 +296,8 @@ const styles = StyleSheet.create({
   },
   currency: {
     width: 105,
+  },
+  jarField: {
+    gap: spacing.sm,
   },
 });

@@ -52,6 +52,7 @@ export default function BillDetailScreen() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.payments(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.bills });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      void queryClient.invalidateQueries({ queryKey: ['spending'] });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
     onError: () => {

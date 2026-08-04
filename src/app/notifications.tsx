@@ -1,24 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/feedback';
-import { AppHeader } from '@/components/ui/header';
+import { AppHeader, SectionHeader } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { formatDateTime } from '@/lib/format';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
 import { syncReminderNotifications } from '@/lib/notifications';
 import { ReminderRecord } from '@/lib/types';
+import { currentMonth } from '@/lib/spending-format';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const reminders = useQuery({
     queryKey: queryKeys.reminders,
     queryFn: housekeeperApi.listReminders,
+  });
+  const spending = useQuery({
+    queryKey: queryKeys.spendingOverview(currentMonth()),
+    queryFn: () => housekeeperApi.getSpendingOverview(currentMonth()),
   });
   const dismiss = useMutation({
     mutationFn: housekeeperApi.dismissReminder,
@@ -61,6 +68,58 @@ export default function NotificationsScreen() {
           onPress={() => sync.mutate()}
         />
       </Card>
+
+      {spending.data?.thresholdEvents.length ? (
+        <View style={styles.list}>
+          <SectionHeader title="Cảnh báo hũ tháng này" />
+          {spending.data.thresholdEvents.map((event) => (
+            <Pressable
+              key={event.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Mở hũ ${event.jarName}`}
+              onPress={() =>
+                router.push(
+                  `/spending/jar/${event.jarId}?month=${event.month}`,
+                )
+              }>
+              <Card
+                tone={event.thresholdPercent >= 100 ? 'danger' : 'warning'}
+                style={styles.reminder}>
+                <View style={styles.reminderIcon}>
+                  <Ionicons
+                    name={
+                      event.thresholdPercent >= 100
+                        ? 'alert-circle-outline'
+                        : 'speedometer-outline'
+                    }
+                    size={22}
+                    color={
+                      event.thresholdPercent >= 100
+                        ? colors.danger
+                        : colors.warning
+                    }
+                  />
+                </View>
+                <View style={styles.flex}>
+                  <AppText variant="supportingStrong">
+                    {event.thresholdPercent >= 100
+                      ? `${event.jarName} đã vượt hạn mức`
+                      : `${event.jarName} đã chạm ${event.thresholdPercent}% hạn mức`}
+                  </AppText>
+                  <AppText variant="supporting" color={colors.inkMuted}>
+                    Đã chi {Math.round(event.spentAmount).toLocaleString('vi-VN')} /{' '}
+                    {Math.round(event.limitAmount).toLocaleString('vi-VN')}{' '}
+                    trong tháng.
+                  </AppText>
+                  <AppText variant="labelStrong" color={colors.primary}>
+                    Xem các khoản chi
+                  </AppText>
+                </View>
+              </Card>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       {reminders.isLoading ? (
         <View style={styles.list}>

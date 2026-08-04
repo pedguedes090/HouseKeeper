@@ -5,7 +5,7 @@ import {
   BeVietnamPro_700Bold,
   useFonts,
 } from '@expo-google-fonts/be-vietnam-pro';
-import { DefaultTheme, Redirect, Stack, ThemeProvider, useSegments } from 'expo-router';
+import { DefaultTheme, Redirect, Stack, ThemeProvider, useRouter, useSegments } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -85,8 +85,26 @@ export default function RootLayout() {
 
 function NavigationGate() {
   const { status } = useAuth();
+  const router = useRouter();
   const reducedMotion = useReducedMotion();
   const segments = useSegments();
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data ?? {};
+        if (
+          data.type === 'SPENDING_JAR' &&
+          typeof data.jarId === 'string' &&
+          typeof data.month === 'string'
+        ) {
+          router.push(
+            `/spending/jar/${data.jarId}?month=${data.month}`,
+          );
+        }
+      },
+    );
+    return () => subscription.remove();
+  }, [router]);
   if (status === 'loading') {
     return (
       <Screen scroll={false} bottomInset={false}>

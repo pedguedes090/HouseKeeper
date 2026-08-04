@@ -209,6 +209,18 @@ export interface SpendingOverview {
   currencyTotals: Record<string, number>;
   jars: SpendingJarSummary[];
   recentExpenses: ExpenseRecord[];
+  thresholdEvents: SpendingThresholdEvent[];
+}
+
+export interface SpendingThresholdEvent {
+  id: string;
+  jarId: string;
+  jarName: string;
+  month: string;
+  thresholdPercent: number;
+  spentAmount: number;
+  limitAmount: number;
+  createdAt: string;
 }
 
 export interface PagedResponse<T> {

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ExpenseRow } from '@/components/domain/expense-row';
@@ -15,6 +15,7 @@ import { Screen } from '@/components/ui/screen';
 import { formatCurrency } from '@/lib/format';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
 import { currentMonth, formatMonth, shiftMonth } from '@/lib/spending-format';
+import { syncSpendingThresholdNotifications } from '@/lib/notifications';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function SpendingScreen() {
@@ -25,6 +26,12 @@ export default function SpendingScreen() {
     queryKey: queryKeys.spendingOverview(month),
     queryFn: () => housekeeperApi.getSpendingOverview(month),
   });
+
+  useEffect(() => {
+    if (overview.data?.thresholdEvents.length) {
+      void syncSpendingThresholdNotifications(overview.data.thresholdEvents);
+    }
+  }, [overview.data?.thresholdEvents]);
 
   function moveMonth(delta: number) {
     const next = shiftMonth(month, delta);

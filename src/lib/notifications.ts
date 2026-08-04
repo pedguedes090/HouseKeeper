@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { ReminderRecord } from '@/lib/types';
+import { ReminderRecord, SpendingThresholdEvent } from '@/lib/types';
 
 export async function prepareNotifications() {
   if (Platform.OS === 'android') {
@@ -50,4 +50,37 @@ export async function syncReminderNotifications(reminders: ReminderRecord[]) {
     ),
   );
   return { granted: true, scheduled: future.length };
+}
+
+export async function syncSpendingThresholdNotifications(
+  events: SpendingThresholdEvent[],
+) {
+  if (Platform.OS === 'web' || !events.length) {
+    return { granted: false, scheduled: 0 };
+  }
+  const granted = await prepareNotifications();
+  if (!granted) return { granted: false, scheduled: 0 };
+
+  await Promise.all(
+    events.map((event) =>
+      Notifications.scheduleNotificationAsync({
+        identifier: `spending-threshold-${event.id}`,
+        content: {
+          title:
+            event.thresholdPercent >= 100
+              ? `${event.jarName} đã vượt hạn mức`
+              : `${event.jarName} đã chạm ${event.thresholdPercent}% hạn mức`,
+          body: 'Mở Hũ chi tiêu để xem lại các khoản trong tháng.',
+          sound: 'default',
+          data: {
+            type: 'SPENDING_JAR',
+            jarId: event.jarId,
+            month: event.month,
+          },
+        },
+        trigger: null,
+      }),
+    ),
+  );
+  return { granted: true, scheduled: events.length };
 }
