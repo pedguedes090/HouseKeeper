@@ -37,21 +37,18 @@ import { colors, layout, radii, shadows, spacing, typography } from '@/theme/tok
 
 const initialSuggestions = [
   {
-    icon: 'receipt-outline',
-    text: 'Tháng này tôi còn hóa đơn nào chưa trả?',
+    icon: 'wallet-outline',
+    text: 'Tháng này tôi đã tiêu bao nhiêu?',
+  },
+  {
+    icon: 'speedometer-outline',
+    text: 'Hũ nào sắp vượt hạn mức?',
   },
   {
     icon: 'id-card-outline',
     text: 'Giấy tờ nào sắp hết hạn?',
   },
-  {
-    icon: 'shield-checkmark-outline',
-    text: 'Thiết bị nào sắp hết bảo hành?',
-  },
-  {
-    icon: 'repeat-outline',
-    text: 'Tổng chi cho dịch vụ định kỳ là bao nhiêu?',
-  },
+  { icon: 'receipt-outline', text: 'Tháng này tôi còn hóa đơn nào chưa trả?' },
 ] as const;
 
 const followUpByIntent: Record<string, string[]> = {
@@ -74,6 +71,22 @@ const followUpByIntent: Record<string, string[]> = {
   EXPIRING_WARRANTIES: [
     'Thiết bị nào hết bảo hành sớm nhất?',
     'Trong 30 ngày tới có bảo hành nào hết?',
+  ],
+  EXPENSE_TOTAL: [
+    'Liệt kê các khoản chi lớn nhất tháng này.',
+    'Ước tính cuối tháng tôi sẽ tiêu bao nhiêu?',
+  ],
+  EXPENSE_LIST: [
+    'Tổng các khoản này là bao nhiêu?',
+    'So với tháng trước thì sao?',
+  ],
+  SPENDING_JAR_STATUS: [
+    'Tiền ăn uống tăng bao nhiêu so với tháng trước?',
+    'Tháng này tôi đã tiêu bao nhiêu?',
+  ],
+  SPENDING_TREND: [
+    'Hũ nào sắp vượt hạn mức?',
+    'Liệt kê các khoản chi tháng này.',
   ],
 };
 
@@ -219,6 +232,8 @@ export default function AssistantScreen() {
       item.type === 'BILL_PAYMENT'
     ) {
       router.push(`/bills/${routeId}`);
+    } else if (item.type === 'EXPENSE' || item.type === 'SPENDING_JAR') {
+      router.push(`/spending/jar/${routeId}`);
     }
   }
 
@@ -550,6 +565,8 @@ function iconForItem(type: string): keyof typeof Ionicons.glyphMap {
   if (type === 'RECURRING_BILL') return 'repeat-outline';
   if (type === 'BILL_PAYMENT') return 'card-outline';
   if (type === 'MAINTENANCE') return 'build-outline';
+  if (type === 'EXPENSE') return 'cash-outline';
+  if (type === 'SPENDING_JAR') return 'pie-chart-outline';
   return 'receipt-outline';
 }
 
@@ -563,6 +580,8 @@ function canOpenItem(item: AssistantItem) {
       'DOCUMENT',
       'ASSET',
       'MAINTENANCE',
+      'EXPENSE',
+      'SPENDING_JAR',
     ].includes(item.type)
   );
 }

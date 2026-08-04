@@ -15,6 +15,7 @@ import { IconButton } from '@/components/ui/button';
 import { Screen } from '@/components/ui/screen';
 import { formatCurrency, greeting } from '@/lib/format';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
+import { currentMonth } from '@/lib/spending-format';
 import { useAuth } from '@/providers/auth-provider';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -32,6 +33,13 @@ export default function HomeScreen() {
     queryKey: queryKeys.dashboard,
     queryFn: housekeeperApi.dashboard,
   });
+  const spending = useQuery({
+    queryKey: queryKeys.spendingOverview(currentMonth()),
+    queryFn: () => housekeeperApi.getSpendingOverview(currentMonth()),
+  });
+  const spendingInsight =
+    spending.data?.jars.find((jar) => jar.state === 'OVER_LIMIT') ??
+    spending.data?.jars.find((jar) => jar.state === 'NEAR_LIMIT');
 
   return (
     <Screen
@@ -97,6 +105,48 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </View>
+
+      {spendingInsight ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Mở hũ ${spendingInsight.name}`}
+          onPress={() =>
+            router.push(`/spending/jar/${spendingInsight.id}?month=${currentMonth()}`)
+          }
+          style={({ pressed }) => pressed && styles.pressed}>
+          <Card
+            tone={spendingInsight.state === 'OVER_LIMIT' ? 'danger' : 'warning'}
+            style={styles.spendingInsight}>
+            <View style={styles.insightIcon}>
+              <Ionicons
+                name={
+                  spendingInsight.state === 'OVER_LIMIT'
+                    ? 'alert-circle-outline'
+                    : 'speedometer-outline'
+                }
+                size={22}
+                color={
+                  spendingInsight.state === 'OVER_LIMIT'
+                    ? colors.danger
+                    : colors.warning
+                }
+              />
+            </View>
+            <View style={styles.flex}>
+              <AppText variant="supportingStrong">
+                {spendingInsight.name} đã dùng{' '}
+                {Math.round(spendingInsight.usagePercent)}% hạn mức
+              </AppText>
+              <AppText variant="label" color={colors.inkMuted}>
+                {spendingInsight.state === 'OVER_LIMIT'
+                  ? 'Đã vượt mức tháng này — xem lại các khoản chi.'
+                  : 'Đang gần hạn mức — cân nhắc trước khoản chi tiếp theo.'}
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={19} color={colors.inkMuted} />
+          </Card>
+        </Pressable>
+      ) : null}
 
       {dashboard.isError ? (
         <ErrorState
@@ -324,5 +374,19 @@ const styles = StyleSheet.create({
     borderColor: colors.successSoft,
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  spendingInsight: {
+    alignItems: 'center',
+    borderColor: colors.transparent,
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  insightIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
   },
 });

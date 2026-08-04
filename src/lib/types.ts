@@ -291,7 +291,9 @@ export interface AssistantItem {
     | 'BILL_PAYMENT'
     | 'DOCUMENT'
     | 'ASSET'
-    | 'MAINTENANCE';
+    | 'MAINTENANCE'
+    | 'EXPENSE'
+    | 'SPENDING_JAR';
   title: string;
   dueDate: string | null;
   detail: string;
