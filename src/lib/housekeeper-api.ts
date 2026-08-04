@@ -21,9 +21,16 @@ import {
   MaintenanceRecord,
   PaymentRecord,
   PickedFile,
+  ExpenseInput,
+  ExpenseRecord,
+  PagedResponse,
   ReminderRecord,
   ScanJob,
   ScanTargetType,
+  SpendingJarInput,
+  SpendingJarRecord,
+  SpendingJarSummary,
+  SpendingOverview,
 } from '@/lib/types';
 
 const MAX_SCAN_IMAGE_EDGE = 2400;
@@ -130,6 +137,10 @@ export const queryKeys = {
   reminders: ['reminders'] as const,
   scans: ['scans'] as const,
   scan: (id: string) => ['scans', id] as const,
+  spendingOverview: (month: string) => ['spending', 'overview', month] as const,
+  spendingJars: ['spending', 'jars'] as const,
+  spendingExpenses: (month: string, jarId?: string | null) =>
+    ['spending', 'expenses', month, jarId ?? 'all'] as const,
 };
 
 export const housekeeperApi = {
@@ -245,4 +256,67 @@ export const housekeeperApi = {
     }),
   deleteScan: (id: string) =>
     apiFetch<void>(`/scans/${id}`, { method: 'DELETE' }),
+
+  getSpendingOverview: (month: string) =>
+    apiFetch<SpendingOverview>(`/spending/overview?month=${encodeURIComponent(month)}`),
+  listSpendingJars: () =>
+    apiFetch<SpendingJarRecord[]>('/spending/jars'),
+  createSpendingJar: (input: SpendingJarInput) =>
+    apiFetch<SpendingJarRecord>('/spending/jars', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateSpendingJar: (id: string, input: SpendingJarInput) =>
+    apiFetch<SpendingJarRecord>(`/spending/jars/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  archiveSpendingJar: (id: string) =>
+    apiFetch<void>(`/spending/jars/${id}/archive`, { method: 'PATCH' }),
+  setSpendingMonthlyLimit: (id: string, month: string, amount: number) =>
+    apiFetch<SpendingJarSummary>(
+      `/spending/jars/${id}/monthly-limit/${encodeURIComponent(month)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ amount }),
+      },
+    ),
+  removeSpendingMonthlyLimit: (id: string, month: string) =>
+    apiFetch<SpendingJarSummary>(
+      `/spending/jars/${id}/monthly-limit/${encodeURIComponent(month)}`,
+      { method: 'DELETE' },
+    ),
+  listExpenses: (
+    month: string,
+    jarId?: string | null,
+    page = 0,
+    size = 30,
+  ) => {
+    const params = new URLSearchParams({
+      month,
+      page: String(page),
+      size: String(size),
+    });
+    if (jarId) params.set('jarId', jarId);
+    return apiFetch<PagedResponse<ExpenseRecord>>(
+      `/spending/expenses?${params.toString()}`,
+    );
+  },
+  createExpense: (input: ExpenseInput) =>
+    apiFetch<ExpenseRecord>('/spending/expenses', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateExpense: (id: string, input: ExpenseInput) =>
+    apiFetch<ExpenseRecord>(`/spending/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  deleteExpense: (id: string) =>
+    apiFetch<void>(`/spending/expenses/${id}`, { method: 'DELETE' }),
+  setExpenseExcluded: (id: string, excluded: boolean) =>
+    apiFetch<ExpenseRecord>(`/spending/expenses/${id}/excluded`, {
+      method: 'PATCH',
+      body: JSON.stringify({ excluded }),
+    }),
 };

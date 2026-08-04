@@ -14,8 +14,7 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "House Keeper dùng camera để quét giấy tờ, hóa đơn và thông tin bảo hành.",
-        "NSPhotoLibraryUsageDescription": "House Keeper cần truy cập ảnh bạn chọn để trích xuất thông tin.",
-        "NSFaceIDUsageDescription": "House Keeper có thể dùng Face ID để bảo vệ dữ liệu cá nhân."
+        "NSPhotoLibraryUsageDescription": "House Keeper cần truy cập ảnh bạn chọn để trích xuất thông tin."
       }
     },
     "android": {
@@ -49,12 +48,6 @@
           "backgroundColor": "#F8F9FF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Cho phép House Keeper dùng camera để quét tài liệu."
         }
       ],
       [
