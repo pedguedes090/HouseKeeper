@@ -57,7 +57,7 @@ export type MaintenanceType =
   | 'CLEANING'
   | 'OTHER';
 
-export type ScanTargetType = 'DOCUMENT' | 'BILL' | 'ASSET';
+export type ScanTargetType = 'DOCUMENT' | 'BILL' | 'ASSET' | 'EXPENSE';
 export type ScanStatus = 'PROCESSING' | 'REVIEW_REQUIRED' | 'CONFIRMED' | 'FAILED';
 
 export interface TokenPair {

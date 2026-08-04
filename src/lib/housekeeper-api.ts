@@ -248,7 +248,7 @@ export const housekeeperApi = {
   confirmScan: (
     id: string,
     targetType: ScanTargetType,
-    input: DocumentInput | BillInput | AssetInput,
+    input: DocumentInput | BillInput | AssetInput | ExpenseInput,
   ) =>
     apiFetch<{ id: string }>(`/scans/${id}/confirm/${targetType.toLowerCase()}`, {
       method: 'POST',

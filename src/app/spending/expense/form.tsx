@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect -- hydrate edit form after its page is fetched */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
@@ -51,6 +52,29 @@ export default function ExpenseFormScreen() {
   const [note, setNote] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const uploadReceipt = useMutation({
+    mutationFn: async () => {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.9,
+        allowsMultipleSelection: false,
+      });
+      if (result.canceled) return null;
+      const asset = result.assets[0];
+      return housekeeperApi.uploadScan('EXPENSE', {
+        uri: asset.uri,
+        name: asset.fileName ?? `receipt-${Date.now()}.jpg`,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+      });
+    },
+    onSuccess: (scan) => {
+      if (!scan) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.scans });
+      router.push(`/spending/scan/${scan.id}?month=${month}`);
+    },
+    onError: (error) =>
+      Alert.alert('Chưa thể quét biên lai', getApiErrorMessage(error)),
+  });
 
   useEffect(() => {
     if (!jarId && jars.data?.length) setJarId(jars.data[0].id);
@@ -177,6 +201,21 @@ export default function ExpenseFormScreen() {
       keyboardAware
       header={<AppHeader back title={id ? 'Sửa khoản chi' : 'Thêm khoản chi'} />}>
       <View style={styles.form}>
+        {!id ? (
+          <View style={styles.receiptAction}>
+            <Button
+              label="Quét biên lai"
+              icon="scan-outline"
+              variant="secondary"
+              fullWidth
+              loading={uploadReceipt.isPending}
+              onPress={() => uploadReceipt.mutate()}
+            />
+            <AppText variant="label" color={colors.inkMuted} style={styles.center}>
+              AI sẽ tạo bản nháp. Bạn vẫn kiểm tra và xác nhận trước khi lưu.
+            </AppText>
+          </View>
+        ) : null}
         <FormField
           label="Số tiền *"
           value={amount}
@@ -310,5 +349,11 @@ const styles = StyleSheet.create({
   },
   details: {
     gap: spacing.lg,
+  },
+  receiptAction: {
+    gap: spacing.sm,
+  },
+  center: {
+    textAlign: 'center',
   },
 });

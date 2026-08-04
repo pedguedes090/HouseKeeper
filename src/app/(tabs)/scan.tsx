@@ -246,7 +246,11 @@ export default function ScanScreen() {
             <ScanHistoryItem
               key={scan.id}
               scan={scan}
-              onPress={() => router.push(`/scan/review/${scan.id}`)}
+              onPress={() =>
+                scan.targetType === 'EXPENSE'
+                  ? router.push(`/spending/scan/${scan.id}`)
+                  : router.push(`/scan/review/${scan.id}`)
+              }
             />
           ))
         ) : (
