@@ -73,7 +73,8 @@
             "usesCleartextTraffic": false
           }
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,
