@@ -118,6 +118,9 @@ function NavigationGate() {
       <Stack.Screen name="documents/form" />
       <Stack.Screen name="bills/[id]" />
       <Stack.Screen name="bills/form" />
+      <Stack.Screen name="spending/jars" />
+      <Stack.Screen name="spending/jar/[id]" />
+      <Stack.Screen name="spending/expense/form" />
       <Stack.Screen name="property/[id]" />
       <Stack.Screen name="property/form" />
       <Stack.Screen
