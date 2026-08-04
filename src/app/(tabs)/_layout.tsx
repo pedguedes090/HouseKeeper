@@ -10,8 +10,8 @@ const tabs = [
   { name: 'index', title: 'Trang chủ', icon: 'home-outline', activeIcon: 'home' },
   { name: 'calendar', title: 'Lịch', icon: 'calendar-outline', activeIcon: 'calendar' },
   { name: 'scan', title: 'Quét', icon: 'scan-outline', activeIcon: 'scan' },
-  { name: 'documents', title: 'Giấy tờ', icon: 'id-card-outline', activeIcon: 'id-card' },
-  { name: 'inventory', title: 'Tài sản', icon: 'file-tray-outline', activeIcon: 'file-tray-full' },
+  { name: 'spending', title: 'Hũ', icon: 'pie-chart-outline', activeIcon: 'pie-chart' },
+  { name: 'storage', title: 'Kho', icon: 'file-tray-outline', activeIcon: 'file-tray-full' },
 ] as const;
 
 export default function TabsLayout() {
@@ -59,6 +59,8 @@ export default function TabsLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="documents" options={{ href: null }} />
+      <Tabs.Screen name="inventory" options={{ href: null }} />
     </Tabs>
   );
 }

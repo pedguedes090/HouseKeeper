@@ -4,17 +4,25 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { DocumentCard } from '@/components/domain/document-card';
-import { Button, IconButton } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { ChoiceChips } from '@/components/ui/chip';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/feedback';
 import { AppHeader } from '@/components/ui/header';
 import { Screen } from '@/components/ui/screen';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
-import { colors, spacing } from '@/theme/tokens';
+import { spacing } from '@/theme/tokens';
 
 type Filter = 'ALL' | 'URGENT' | 'SAFE';
 
 export default function DocumentsScreen() {
+  return (
+    <Screen header={<AppHeader title="Giấy tờ" />}>
+      <DocumentsContent />
+    </Screen>
+  );
+}
+
+export function DocumentsContent() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('ALL');
   const query = useQuery({
@@ -35,19 +43,7 @@ export default function DocumentsScreen() {
   }, [filter, query.data]);
 
   return (
-    <Screen
-      header={
-        <AppHeader
-          title="Giấy tờ"
-          right={
-            <IconButton
-              icon="search-outline"
-              label="Tìm giấy tờ"
-              color={colors.inkMuted}
-            />
-          }
-        />
-      }>
+    <>
       <ChoiceChips
         value={filter}
         onChange={setFilter}
@@ -98,7 +94,7 @@ export default function DocumentsScreen() {
         fullWidth
         onPress={() => router.push('/documents/form')}
       />
-    </Screen>
+    </>
   );
 }
 

@@ -15,6 +15,14 @@ import { spacing } from '@/theme/tokens';
 type Filter = 'ALL' | 'WARRANTY' | 'EXPIRED';
 
 export default function AssetsScreen() {
+  return (
+    <Screen header={<AppHeader title="Tài sản & Bảo hành" />}>
+      <InventoryContent />
+    </Screen>
+  );
+}
+
+export function InventoryContent() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('ALL');
   const query = useQuery({ queryKey: queryKeys.assets, queryFn: housekeeperApi.listAssets });
@@ -30,7 +38,7 @@ export default function AssetsScreen() {
   }, [filter, query.data]);
 
   return (
-    <Screen header={<AppHeader title="Tài sản & Bảo hành" />}>
+    <>
       <ChoiceChips
         value={filter}
         onChange={setFilter}
@@ -81,7 +89,7 @@ export default function AssetsScreen() {
         fullWidth
         onPress={() => router.push('/property/form')}
       />
-    </Screen>
+    </>
   );
 }
 

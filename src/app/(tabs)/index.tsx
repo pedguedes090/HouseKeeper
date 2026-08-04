@@ -134,7 +134,9 @@ export default function HomeScreen() {
             <SectionHeader
               title="Cần chú ý trước"
               actionLabel="Xem giấy tờ"
-              onAction={() => router.push('/(tabs)/documents')}
+              onAction={() =>
+                router.push('/(tabs)/storage?segment=documents')
+              }
             />
             {dashboard.data.urgentDocuments[0] ? (
               <DocumentCard
@@ -172,7 +174,7 @@ export default function HomeScreen() {
             <SectionHeader
               title="Bảo hành sắp hết"
               actionLabel="Xem tài sản"
-              onAction={() => router.push('/(tabs)/inventory')}
+              onAction={() => router.push('/(tabs)/storage?segment=assets')}
             />
             {dashboard.data.expiringWarranties[0] ? (
               <AssetCard
