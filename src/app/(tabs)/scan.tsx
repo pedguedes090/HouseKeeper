@@ -1,9 +1,10 @@
+/* eslint-disable react-hooks/set-state-in-effect -- hydrate the scan target from an incoming deep link */
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
@@ -32,9 +33,16 @@ const targets = [
   {
     value: 'BILL',
     label: 'Hóa đơn',
-    title: 'Hóa đơn & khoản chi',
+    title: 'Hóa đơn cần theo dõi',
     description: 'Nhận diện nhà cung cấp, số tiền và ngày đến hạn.',
     icon: 'receipt-outline',
+  },
+  {
+    value: 'EXPENSE',
+    label: 'Khoản chi',
+    title: 'Khoản chi đã phát sinh',
+    description: 'Nhận diện tổng tiền, ngày giao dịch và tự gợi ý hũ chi.',
+    icon: 'wallet-outline',
   },
   {
     value: 'DOCUMENT',
@@ -54,8 +62,14 @@ const targets = [
 
 export default function ScanScreen() {
   const router = useRouter();
+  const { target: routeTarget } = useLocalSearchParams<{ target?: string }>();
   const queryClient = useQueryClient();
-  const [target, setTarget] = useState<ScanTargetType>('BILL');
+  const [target, setTarget] = useState<ScanTargetType>(
+    routeTarget === 'EXPENSE' ? 'EXPENSE' : 'BILL',
+  );
+  useEffect(() => {
+    if (routeTarget === 'EXPENSE') setTarget('EXPENSE');
+  }, [routeTarget]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const selected = targets.find((item) => item.value === target)!;
   const scans = useQuery({ queryKey: queryKeys.scans, queryFn: housekeeperApi.listScans });

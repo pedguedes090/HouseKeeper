@@ -44,6 +44,7 @@ yarn-error.*
 .playwright-cli/
 output/
 .worktrees/
+.expo-export-check/
 
 example
 

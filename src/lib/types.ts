@@ -55,8 +55,10 @@ export type MaintenanceType =
   | 'CLEANING'
   | 'OTHER';
 
-export type ScanTargetType = 'DOCUMENT' | 'BILL' | 'ASSET';
+export type ScanTargetType = 'DOCUMENT' | 'BILL' | 'ASSET' | 'EXPENSE';
 export type ScanStatus = 'PROCESSING' | 'REVIEW_REQUIRED' | 'CONFIRMED' | 'FAILED';
+export type BudgetState = 'UNSET' | 'NORMAL' | 'NEAR_LIMIT' | 'OVER_LIMIT';
+export type ExpenseSourceType = 'MANUAL' | 'BILL_PAYMENT' | 'SCAN';
 
 export interface TokenPair {
   accessToken: string;
@@ -111,6 +113,7 @@ export interface BillRecord {
   active: boolean;
   notes: string | null;
   invoiceFileUrl: string | null;
+  spendingJarId: string | null;
   daysUntilDue: number;
   dueStatus: BillDueStatus;
 }
@@ -128,6 +131,7 @@ export interface BillInput {
   active: boolean;
   notes?: string | null;
   invoiceFileUrl?: string | null;
+  spendingJarId?: string | null;
 }
 
 export interface PaymentRecord {
@@ -137,6 +141,75 @@ export interface PaymentRecord {
   paidAt: string;
   amount: number;
   note: string | null;
+  expenseId: string | null;
+}
+
+export interface SpendingJar {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  currency: string;
+  defaultMonthlyLimit: number;
+  displayOrder: number;
+  archived: boolean;
+}
+
+export interface JarSummary {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  currency: string;
+  limitAmount: number;
+  spentAmount: number;
+  remainingAmount: number;
+  usagePercent: number;
+  state: BudgetState;
+  monthlyOverride: boolean;
+}
+
+export interface ExpenseRecord {
+  id: string;
+  jarId: string;
+  amount: number;
+  currency: string;
+  title: string;
+  merchant: string | null;
+  spentAt: string;
+  note: string | null;
+  receiptFileUrl: string | null;
+  sourceType: ExpenseSourceType;
+  sourceId: string | null;
+  excludedFromStats: boolean;
+}
+
+export interface ExpenseInput {
+  jarId: string;
+  amount: number;
+  currency: string;
+  title: string;
+  merchant?: string | null;
+  spentAt: string;
+  note?: string | null;
+  receiptFileUrl?: string | null;
+}
+
+export interface SpendingOverview {
+  month: string;
+  currencyTotals: Record<string, number>;
+  jars: JarSummary[];
+  recentExpenses: ExpenseRecord[];
+  thresholdEvents: {
+    id: string;
+    jarId: string;
+    jarName: string;
+    month: string;
+    thresholdPercent: number;
+    spentAmount: number;
+    limitAmount: number;
+    createdAt: string;
+  }[];
 }
 
 export interface AssetRecord {

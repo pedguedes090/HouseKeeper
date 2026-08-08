@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { ChoiceChips } from '@/components/ui/chip';
 import { ErrorState, LoadingState } from '@/components/ui/feedback';
@@ -14,7 +15,7 @@ import { SwitchRow } from '@/components/ui/switch-row';
 import { billCategoryLabels, recurrenceLabels } from '@/lib/format';
 import { housekeeperApi, queryKeys } from '@/lib/housekeeper-api';
 import { BillCategory, BillInput, Recurrence } from '@/lib/types';
-import { spacing } from '@/theme/tokens';
+import { colors, spacing } from '@/theme/tokens';
 
 function defaultDueDate() {
   const date = new Date();
@@ -35,6 +36,7 @@ const empty: BillInput = {
   active: true,
   notes: '',
   invoiceFileUrl: null,
+  spendingJarId: null,
 };
 
 export default function BillFormScreen() {
@@ -49,6 +51,10 @@ export default function BillFormScreen() {
     queryKey: queryKeys.bill(id ?? ''),
     queryFn: () => housekeeperApi.getBill(id!),
     enabled: Boolean(id),
+  });
+  const jars = useQuery({
+    queryKey: queryKeys.spendingJars,
+    queryFn: housekeeperApi.listSpendingJars,
   });
 
   useEffect(() => {
@@ -66,6 +72,7 @@ export default function BillFormScreen() {
         active,
         notes,
         invoiceFileUrl,
+        spendingJarId,
       } = existing.data;
       setForm({
         title,
@@ -80,6 +87,7 @@ export default function BillFormScreen() {
         active,
         notes,
         invoiceFileUrl,
+        spendingJarId,
       });
       setAmount(String(savedAmount));
       setReminderDays(String(reminderDaysBefore));
@@ -158,6 +166,25 @@ export default function BillFormScreen() {
             label: billCategoryLabels[value],
           }))}
         />
+        <View style={styles.jarSection}>
+          <AppText variant="supportingStrong" color={colors.inkMuted}>
+            Hũ chi khi thanh toán
+          </AppText>
+          <ChoiceChips
+            value={form.spendingJarId ?? ''}
+            onChange={(spendingJarId) =>
+              setForm((current) => ({ ...current, spendingJarId: spendingJarId || null }))
+            }
+            accessibilityLabel="Hũ chi của hóa đơn"
+            choices={[
+              { value: '', label: 'Chưa chọn' },
+              ...(jars.data?.map((jar) => ({ value: jar.id, label: jar.name })) ?? []),
+            ]}
+          />
+          <AppText variant="label" color={colors.inkMuted}>
+            Gắn hũ để lần đánh dấu đã thanh toán tự ghi nhận vào chi tiêu.
+          </AppText>
+        </View>
         <View style={styles.inline}>
           <View style={styles.flex}>
             <FormField
@@ -242,5 +269,8 @@ const styles = StyleSheet.create({
   },
   currency: {
     width: 105,
+  },
+  jarSection: {
+    gap: spacing.sm,
   },
 });

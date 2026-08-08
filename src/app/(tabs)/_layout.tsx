@@ -10,6 +10,7 @@ const tabs = [
   { name: 'index', title: 'Trang chủ', icon: 'home-outline', activeIcon: 'home' },
   { name: 'calendar', title: 'Lịch', icon: 'calendar-outline', activeIcon: 'calendar' },
   { name: 'scan', title: 'Quét', icon: 'scan-outline', activeIcon: 'scan' },
+  { name: 'spending', title: 'Chi tiêu', icon: 'wallet-outline', activeIcon: 'wallet' },
   { name: 'documents', title: 'Giấy tờ', icon: 'id-card-outline', activeIcon: 'id-card' },
   { name: 'inventory', title: 'Tài sản', icon: 'file-tray-outline', activeIcon: 'file-tray-full' },
 ] as const;

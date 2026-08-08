@@ -28,8 +28,10 @@ import {
   BillInput,
   DocumentInput,
   DocumentType,
+  ExpenseInput,
   Recurrence,
   ScanJob,
+  SpendingJar,
 } from '@/lib/types';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -48,6 +50,11 @@ export default function ScanReviewScreen() {
     refetchInterval: (query) =>
       query.state.data?.status === 'PROCESSING' ? 1500 : false,
   });
+  const spendingJars = useQuery({
+    queryKey: queryKeys.spendingJars,
+    queryFn: housekeeperApi.listSpendingJars,
+    enabled: scan.data?.targetType === 'EXPENSE' || scan.data?.targetType === 'BILL',
+  });
 
   useEffect(() => {
     if (!scan.data?.extractedDataJson) return;
@@ -60,6 +67,13 @@ export default function ScanReviewScreen() {
       setDraft(toDraft(scan.data, {}));
     }
   }, [scan.data]);
+
+  useEffect(() => {
+    if (scan.data?.targetType !== 'EXPENSE' || !spendingJars.data?.length || draft.jarId) return;
+    const suggested = normalizeJarName(text(meta.suggestedJarName));
+    const match = spendingJars.data.find((jar) => normalizeJarName(jar.name) === suggested);
+    setDraft((current) => ({ ...current, jarId: match?.id ?? spendingJars.data[0].id }));
+  }, [draft.jarId, meta.suggestedJarName, scan.data?.targetType, spendingJars.data]);
 
   const confirm = useMutation({
     mutationFn: async () => {
@@ -74,20 +88,27 @@ export default function ScanReviewScreen() {
       if (!scan.data) return;
       void queryClient.invalidateQueries({ queryKey: queryKeys.scans });
       void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      if (scan.data.targetType === 'EXPENSE') {
+        void queryClient.invalidateQueries({ queryKey: ['spending'] });
+      }
       void queryClient.invalidateQueries({
         queryKey:
           scan.data.targetType === 'DOCUMENT'
             ? queryKeys.documents
             : scan.data.targetType === 'BILL'
               ? queryKeys.bills
-              : queryKeys.assets,
+              : scan.data.targetType === 'ASSET'
+                ? queryKeys.assets
+                : ['spending'],
       });
       const route =
         scan.data.targetType === 'DOCUMENT'
           ? `/documents/${result.id}`
           : scan.data.targetType === 'BILL'
             ? `/bills/${result.id}`
-            : `/property/${result.id}`;
+            : scan.data.targetType === 'ASSET'
+              ? `/property/${result.id}`
+              : '/(tabs)/spending';
       router.replace(route as Href);
     },
     onError: (error: Error) => {
@@ -157,14 +178,18 @@ export default function ScanReviewScreen() {
         ? `/documents/${scan.data.confirmedSourceId}`
         : scan.data.targetType === 'BILL'
           ? `/bills/${scan.data.confirmedSourceId}`
-          : `/property/${scan.data.confirmedSourceId}`
+          : scan.data.targetType === 'ASSET'
+            ? `/property/${scan.data.confirmedSourceId}`
+            : '/(tabs)/spending'
       : null;
     const confirmedLabel =
       scan.data.targetType === 'DOCUMENT'
         ? 'Mở giấy tờ đã lưu'
         : scan.data.targetType === 'BILL'
           ? 'Mở hóa đơn đã lưu'
-          : 'Mở tài sản đã lưu';
+          : scan.data.targetType === 'ASSET'
+            ? 'Mở tài sản đã lưu'
+            : 'Mở sổ chi tiêu';
     return (
       <Screen header={<AppHeader back title="Ảnh đã lưu" />}>
         <SecureImageViewer
@@ -248,7 +273,22 @@ export default function ScanReviewScreen() {
         {scan.data.targetType === 'DOCUMENT' ? (
           <DocumentDraft draft={draft} errors={errors} setDraft={setDraft} />
         ) : scan.data.targetType === 'BILL' ? (
-          <BillDraft draft={draft} errors={errors} setDraft={setDraft} />
+          <BillDraft
+            draft={draft}
+            errors={errors}
+            setDraft={setDraft}
+            jars={spendingJars.data ?? []}
+            onCreateJar={() => router.push('/spending/jar-form' as Href)}
+          />
+        ) : scan.data.targetType === 'EXPENSE' ? (
+          <ExpenseDraft
+            draft={draft}
+            errors={errors}
+            setDraft={setDraft}
+            jars={spendingJars.data ?? []}
+            loadingJars={spendingJars.isLoading}
+            onCreateJar={() => router.push('/spending/jar-form' as Href)}
+          />
         ) : (
           <AssetDraft draft={draft} errors={errors} setDraft={setDraft} />
         )}
@@ -257,7 +297,9 @@ export default function ScanReviewScreen() {
       <Card tone="soft" style={styles.reminderNote}>
         <Ionicons name="notifications-outline" size={21} color={colors.primary} />
         <AppText variant="label" color={colors.inkMuted} style={styles.flex}>
-          Sau khi lưu, House Keeper sẽ tự tạo lịch nhắc nếu dữ liệu có ngày đến hạn hoặc ngày hết bảo hành.
+          {scan.data.targetType === 'EXPENSE'
+            ? 'Khoản chi sẽ được ghi vào hũ đã chọn và cập nhật tổng chi tiêu tháng này.'
+            : 'Sau khi lưu, House Keeper sẽ tự tạo lịch nhắc nếu dữ liệu có ngày đến hạn hoặc ngày hết bảo hành.'}
         </AppText>
       </Card>
 
@@ -303,7 +345,13 @@ function DocumentDraft({
   );
 }
 
-function BillDraft({ draft, setDraft, errors }: DraftEditorProps) {
+function BillDraft({
+  draft,
+  setDraft,
+  errors,
+  jars,
+  onCreateJar,
+}: DraftEditorProps & { jars: SpendingJar[]; onCreateJar: () => void }) {
   return (
     <>
       <FormField label="Tên khoản thanh toán *" value={draft.title ?? ''} onChangeText={(value) => update(setDraft, 'title', value)} error={errors.title} />
@@ -316,6 +364,24 @@ function BillDraft({ draft, setDraft, errors }: DraftEditorProps) {
           label: billCategoryLabels[value],
         }))}
       />
+      <View style={styles.jarHeading}>
+        <AppText variant="supportingStrong" color={colors.inkMuted}>
+          Hũ chi khi thanh toán
+        </AppText>
+        <AppText variant="label" color={colors.inkMuted}>
+          Gắn hũ để lần đánh dấu đã thanh toán được tự ghi vào chi tiêu.
+        </AppText>
+      </View>
+      {jars.length ? (
+        <ChoiceChips
+          value={draft.jarId || ''}
+          onChange={(jarId) => update(setDraft, 'jarId', jarId)}
+          accessibilityLabel="Hũ chi của hóa đơn"
+          choices={[{ value: '', label: 'Chưa chọn' }, ...jars.map((jar) => ({ value: jar.id, label: jar.name }))]}
+        />
+      ) : (
+        <Button label="Tạo hũ chi tiêu" variant="secondary" onPress={onCreateJar} />
+      )}
       <View style={styles.inline}>
         <View style={styles.flex}>
           <FormField label="Số tiền *" value={draft.amount ?? ''} onChangeText={(value) => update(setDraft, 'amount', value)} keyboardType="numeric" error={errors.amount} />
@@ -335,6 +401,78 @@ function BillDraft({ draft, setDraft, errors }: DraftEditorProps) {
       />
       <FormField label="Nhắc trước (ngày)" value={draft.reminderDaysBefore || '3'} onChangeText={(value) => update(setDraft, 'reminderDaysBefore', value)} keyboardType="number-pad" error={errors.reminderDaysBefore} />
       <FormField label="Ghi chú" value={draft.notes ?? ''} onChangeText={(value) => update(setDraft, 'notes', value)} multiline />
+    </>
+  );
+}
+
+function ExpenseDraft({
+  draft,
+  setDraft,
+  errors,
+  jars,
+  loadingJars,
+  onCreateJar,
+}: DraftEditorProps & {
+  jars: SpendingJar[];
+  loadingJars: boolean;
+  onCreateJar: () => void;
+}) {
+  const suggested = normalizeJarName(draft.suggestedJarName);
+  const suggestedJar = jars.find((jar) => normalizeJarName(jar.name) === suggested);
+  const selectedJarId = draft.jarId || suggestedJar?.id || jars[0]?.id || '';
+
+  return (
+    <>
+      <View style={styles.jarHeading}>
+        <AppText variant="supportingStrong" color={colors.inkMuted}>
+          Phân phối vào hũ chi *
+        </AppText>
+        {suggestedJar ? (
+          <AppText variant="label" color={colors.success}>
+            AI gợi ý: {suggestedJar.name}
+          </AppText>
+        ) : null}
+      </View>
+      {loadingJars ? (
+        <LoadingState label="Đang tải các hũ chi tiêu…" />
+      ) : jars.length ? (
+        <ChoiceChips
+          value={selectedJarId}
+          onChange={(jarId) => update(setDraft, 'jarId', jarId)}
+          accessibilityLabel="Hũ nhận khoản chi"
+          choices={jars.map((jar) => ({ value: jar.id, label: jar.name }))}
+        />
+      ) : (
+        <Card tone="warning" style={styles.noJarCard}>
+          <Ionicons name="wallet-outline" size={22} color={colors.warning} />
+          <View style={styles.flex}>
+            <AppText variant="supportingStrong" color={colors.warning}>
+              Chưa có hũ chi tiêu
+            </AppText>
+            <AppText variant="label" color={colors.inkMuted}>
+              Tạo một hũ để khoản chi được ghi nhận đúng nơi.
+            </AppText>
+          </View>
+          <Button label="Tạo hũ" variant="ghost" onPress={onCreateJar} />
+        </Card>
+      )}
+      {errors.jarId ? (
+        <AppText variant="label" color={colors.danger}>
+          {errors.jarId}
+        </AppText>
+      ) : null}
+      <FormField label="Tên khoản chi *" value={draft.title ?? ''} onChangeText={(value) => update(setDraft, 'title', value)} error={errors.title} />
+      <FormField label="Nơi mua / người nhận" value={draft.merchant ?? ''} onChangeText={(value) => update(setDraft, 'merchant', value)} />
+      <View style={styles.inline}>
+        <View style={styles.flex}>
+          <FormField label="Số tiền *" value={draft.amount ?? ''} onChangeText={(value) => update(setDraft, 'amount', value)} keyboardType="numeric" error={errors.amount} />
+        </View>
+        <View style={styles.currency}>
+          <FormField label="Tiền tệ" value={draft.currency || 'VND'} onChangeText={(value) => update(setDraft, 'currency', value.toUpperCase())} autoCapitalize="characters" />
+        </View>
+      </View>
+      <DateField label="Ngày giao dịch *" value={draft.spentAt || null} allowEmpty={false} onChange={(value) => update(setDraft, 'spentAt', value ?? '')} error={errors.spentAt} />
+      <FormField label="Ghi chú" value={draft.note ?? ''} onChangeText={(value) => update(setDraft, 'note', value)} multiline />
     </>
   );
 }
@@ -393,6 +531,14 @@ function text(value: unknown, fallback = '') {
   return value == null ? fallback : String(value);
 }
 
+function normalizeJarName(value: string) {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 function toDraft(scan: ScanJob, raw: Record<string, unknown>): Draft {
   if (scan.targetType === 'DOCUMENT') {
     return {
@@ -418,6 +564,17 @@ function toDraft(scan: ScanJob, raw: Record<string, unknown>): Draft {
       notes: text(raw.notes),
     };
   }
+  if (scan.targetType === 'EXPENSE') {
+    return {
+      title: text(raw.title, text(raw.merchant, 'Khoản chi')),
+      merchant: text(raw.merchant),
+      amount: text(raw.amount),
+      currency: text(raw.currency, 'VND'),
+      spentAt: text(raw.spentAt),
+      suggestedJarName: text(raw.suggestedJarName),
+      note: text(raw.note),
+    };
+  }
   return {
     name: text(raw.name),
     category: text(raw.category, 'OTHER'),
@@ -439,6 +596,9 @@ function draftForJson(scan: ScanJob, draft: Draft) {
   if (scan.targetType === 'ASSET') {
     return { ...draft, purchasePrice: draft.purchasePrice ? Number(draft.purchasePrice) : null };
   }
+  if (scan.targetType === 'EXPENSE') {
+    return { ...draft, amount: draft.amount ? Number(draft.amount) : null };
+  }
   return draft;
 }
 
@@ -446,7 +606,7 @@ function buildInput(
   scan: ScanJob,
   draft: Draft,
   setErrors: (errors: Record<string, string>) => void,
-): DocumentInput | BillInput | AssetInput | null {
+): DocumentInput | BillInput | AssetInput | ExpenseInput | null {
   const errors: Record<string, string> = {};
   if (scan.targetType === 'DOCUMENT') {
     if (!draft.title?.trim()) errors.title = 'Vui lòng kiểm tra tên giấy tờ.';
@@ -493,6 +653,26 @@ function buildInput(
       active: true,
       notes: draft.notes || null,
       invoiceFileUrl: scan.fileUrl,
+      spendingJarId: draft.jarId || null,
+    };
+  }
+  if (scan.targetType === 'EXPENSE') {
+    const amount = Number(draft.amount);
+    if (!draft.jarId?.trim()) errors.jarId = 'Vui lòng chọn hũ nhận khoản chi.';
+    if (!draft.title?.trim()) errors.title = 'Vui lòng kiểm tra tên khoản chi.';
+    if (!Number.isFinite(amount) || amount <= 0) errors.amount = 'Số tiền phải lớn hơn 0.';
+    if (!draft.spentAt) errors.spentAt = 'Vui lòng chọn ngày giao dịch.';
+    setErrors(errors);
+    if (Object.keys(errors).length) return null;
+    return {
+      jarId: draft.jarId,
+      amount,
+      currency: (draft.currency || 'VND').trim().toUpperCase(),
+      title: draft.title.trim(),
+      merchant: draft.merchant || null,
+      spentAt: `${draft.spentAt}T12:00:00.000Z`,
+      note: draft.note || null,
+      receiptFileUrl: scan.fileUrl,
     };
   }
   const price = draft.purchasePrice ? Number(draft.purchasePrice) : null;
@@ -565,6 +745,15 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: spacing.lg,
+  },
+  jarHeading: {
+    gap: spacing.xs,
+  },
+  noJarCard: {
+    alignItems: 'center',
+    borderColor: colors.warningSoft,
+    flexDirection: 'row',
+    gap: spacing.md,
   },
   flex: {
     flex: 1,

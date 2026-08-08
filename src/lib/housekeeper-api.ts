@@ -18,12 +18,16 @@ import {
   DashboardData,
   DocumentInput,
   DocumentRecord,
+  ExpenseInput,
+  ExpenseRecord,
   MaintenanceRecord,
   PaymentRecord,
   PickedFile,
   ReminderRecord,
   ScanJob,
   ScanTargetType,
+  SpendingJar,
+  SpendingOverview,
 } from '@/lib/types';
 
 const MAX_SCAN_IMAGE_EDGE = 2400;
@@ -130,6 +134,9 @@ export const queryKeys = {
   reminders: ['reminders'] as const,
   scans: ['scans'] as const,
   scan: (id: string) => ['scans', id] as const,
+  spendingJars: ['spending', 'jars'] as const,
+  spendingOverview: (month: string) => ['spending', 'overview', month] as const,
+  spendingExpenses: (month: string, jarId?: string) => ['spending', 'expenses', month, jarId ?? 'all'] as const,
 };
 
 export const housekeeperApi = {
@@ -179,6 +186,41 @@ export const housekeeperApi = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+
+  listSpendingJars: () => apiFetch<SpendingJar[]>('/spending/jars'),
+  getSpendingOverview: (month: string) =>
+    apiFetch<SpendingOverview>(`/spending/overview?month=${encodeURIComponent(month)}`),
+  createSpendingJar: (input: Omit<SpendingJar, 'id' | 'archived'>) =>
+    apiFetch<SpendingJar>('/spending/jars', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateSpendingJar: (id: string, input: Omit<SpendingJar, 'id' | 'archived'>) =>
+    apiFetch<SpendingJar>(`/spending/jars/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  archiveSpendingJar: (id: string) =>
+    apiFetch<void>(`/spending/jars/${id}/archive`, { method: 'PATCH' }),
+  listExpenses: (month: string, jarId?: string) => {
+    const params = new URLSearchParams({ month, page: '0', size: '100' });
+    if (jarId) params.set('jarId', jarId);
+    return apiFetch<{ items: ExpenseRecord[]; page: number; size: number; totalItems: number; hasMore: boolean }>(
+      `/spending/expenses?${params.toString()}`,
+    );
+  },
+  createExpense: (input: ExpenseInput) =>
+    apiFetch<ExpenseRecord>('/spending/expenses', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  updateExpense: (id: string, input: ExpenseInput) =>
+    apiFetch<ExpenseRecord>(`/spending/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    }),
+  deleteExpense: (id: string) =>
+    apiFetch<void>(`/spending/expenses/${id}`, { method: 'DELETE' }),
 
   listAssets: () => apiFetch<AssetRecord[]>('/assets'),
   getAsset: (id: string) => apiFetch<AssetRecord>(`/assets/${id}`),
@@ -237,7 +279,7 @@ export const housekeeperApi = {
   confirmScan: (
     id: string,
     targetType: ScanTargetType,
-    input: DocumentInput | BillInput | AssetInput,
+    input: DocumentInput | BillInput | AssetInput | ExpenseInput,
   ) =>
     apiFetch<{ id: string }>(`/scans/${id}/confirm/${targetType.toLowerCase()}`, {
       method: 'POST',

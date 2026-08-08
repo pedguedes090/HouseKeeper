@@ -111,6 +111,8 @@ function NavigationGate() {
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="spending/expense-form" />
+      <Stack.Screen name="spending/jar-form" />
       <Stack.Screen name="assistant" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="settings" />

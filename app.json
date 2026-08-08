@@ -10,7 +10,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.khoinguyen.housekeeper",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "House Keeper dùng camera để quét giấy tờ, hóa đơn và thông tin bảo hành.",
@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "com.khoinguyen.housekeeper",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#F8F9FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
